@@ -1,0 +1,1 @@
+CreateObject("WScript.Shell").Run "powershell -ExecutionPolicy Bypass -NoProfile -File ""C:\Users\msi\camping-watcher\guard.ps1""", 0, False
