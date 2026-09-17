@@ -152,7 +152,7 @@ def main():
                     det = " / ".join("%s %d" % (n, c) for n, c in cur[k])
                     nav = "https://map.naver.com/p/search/" + urllib.parse.quote(st["name"])
                     send("⛺ 데크 빈자리 발견\n" + rng(dt) + "\n" + st["name"] + "\n" + det +
-                         "\n🟢\n\n" % st["km"] +
+                         "\n🟢 " + str(st["km"]) + "km\n\n" +
                          '<a href="' + nav + '">📍 네이버지도</a> <a href="' + st["rsv"] + '">🌲 예약하기</a>')
                 log("확인 %d일치 / 신규 %d건" % (len(cur), len(new)))
             except Exception as e:
