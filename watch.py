@@ -3,13 +3,14 @@ from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).parent
 STATE = ROOT / "state.json"; SEEN = ROOT / "seen.json"; LOG = ROOT / "watch.log"
+ALERTED = ROOT / "alerted.json"   # 2026-09-26 같은 자리 재알림 6시간 쿨다운
 env = {}
 for ln in (ROOT / ".env").read_text(encoding="utf-8").splitlines():
     if "=" in ln and not ln.startswith("#"):
         k, v = ln.split("=", 1); env[k.strip()] = v.strip()
 TOKEN, CHAT = env["TELEGRAM_BOT_TOKEN"], env["TELEGRAM_CHAT_ID"]
 FID, FPW = env["FOREST_ID"], env["FOREST_PW"]
-WEEKS, INTERVAL = int(env.get("WEEKS", "8")), int(env.get("INTERVAL_SEC", "300"))
+WEEKS, INTERVAL = int(env.get("WEEKS", "8")), int(env.get("INTERVAL_SEC", "600"))
 HEADLESS = env.get("HEADLESS", "1") == "1"
 AREAS = [("1", "수도권"), ("4", "충남")]
 EXCLUDE = ["설매재", "고대산", "백운봉", "중미산", "유명산", "산음", "덕적도",
@@ -134,6 +135,8 @@ def login(pg):
 
 def main():
     seen = set(json.loads(SEEN.read_text(encoding="utf-8"))) if SEEN.exists() else set()
+    try: alerted = json.loads(ALERTED.read_text(encoding="utf-8"))
+    except Exception: alerted = {}
     fails = 0; warned = False; beat = None
     tg("\uac10\uc2dc \uc2dc\uc791 \u00b7 \uc219\uc18c+\ub370\ud06c / \ub2e4\uc74c %d\uc8fc \ud1a0~\uc77c / %d\ubd84 \uac04\uaca9"
        % (WEEKS, INTERVAL // 60), silent=True)
@@ -165,12 +168,16 @@ def main():
                             for iid, nm, cnt in parse(pg.content(), acd):
                                 cur["%s|%s|%s" % (sat.strftime("%Y%m%d"), sc, iid)] = (sat, nm, cnt, snm)
                             time.sleep(1)
-                new = [k for k in cur if k not in seen]
+                nowts = time.time()   # 2026-09-26 파라님 「텔 덜 오도록」 — 사라졌다 다시 보인 자리는 6시간 안엔 다시 안 알린다(태학산 11:38·12:04)
+                new = [k for k in cur if k not in seen and nowts - alerted.get(k, 0) > 6 * 3600]
                 for k in new:
                     sat, nm, cnt, snm = cur[k]
                     tg("%s \ube48\uc790\ub9ac\n%s\n%s\n\uc608\uc57d\uac00\ub2a5 %d" % (snm, rng(sat), nm, cnt))
+                    alerted[k] = nowts
                 seen = set(cur)
                 SEEN.write_text(json.dumps(sorted(seen), ensure_ascii=False), encoding="utf-8")
+                alerted = {k: v for k, v in alerted.items() if nowts - v < 7 * 86400}
+                ALERTED.write_text(json.dumps(alerted, ensure_ascii=False), encoding="utf-8")
                 log("ok dates=%d areas=%d avail=%d new=%d" % (WEEKS, len(AREAS), len(cur), len(new)))
                 fails = 0; warned = False
                 if beat != now.date() and now.hour >= 8:

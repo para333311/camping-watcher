@@ -1,4 +1,4 @@
-import os, re, json, time, datetime, pathlib, urllib.parse, urllib.request
+﻿import os, re, json, time, datetime, pathlib, urllib.parse, urllib.request
 from playwright.sync_api import sync_playwright
 
 D = pathlib.Path(__file__).parent
@@ -11,7 +11,7 @@ TOKEN = ENV.get("TELEGRAM_BOT_TOKEN", "")
 CHAT = ENV.get("TELEGRAM_CHAT_ID", "")
 SEEN = D / "seen_hyangnam.json"
 LOG = D / "hyangnam.log"
-INTERVAL = 180
+INTERVAL = 360   # 2026-09-26 파라님 「반으로 줄여 텔 덜 오도록」
 
 def log(s):
     t = datetime.datetime.now().strftime("%m-%d %H:%M:%S")

@@ -1,4 +1,4 @@
-import os, re, json, time, datetime, pathlib, urllib.parse, urllib.request
+﻿import os, re, json, time, datetime, pathlib, urllib.parse, urllib.request
 from playwright.sync_api import sync_playwright
 
 D = pathlib.Path(__file__).parent
@@ -11,7 +11,7 @@ TOKEN = ENV.get("TELEGRAM_BOT_TOKEN", "")
 CHAT = ENV.get("TELEGRAM_CHAT_ID", "")
 SEEN = D / "seen_local.json"
 LOG = D / "local.log"
-INTERVAL = 180
+INTERVAL = 360   # 2026-09-26 파라님 「반으로 줄여 텔 덜 오도록」
 
 def log(s):
     t = datetime.datetime.now().strftime("%m-%d %H:%M:%S")
@@ -124,7 +124,7 @@ def main():
             seen = json.loads(SEEN.read_text(encoding="utf-8"))
         except Exception:
             seen = {}
-    send("근처 캠핑장 감시 시작\n향남오토캠핑장 · 도덕산캠핑장 / 3분 간격")
+    send("근처 캠핑장 감시 시작\n향남오토캠핑장 · 도덕산캠핑장 / 6분 간격")
     with sync_playwright() as p:
         br = p.chromium.launch(headless=True)
         ctx = br.new_context(ignore_https_errors=True,
