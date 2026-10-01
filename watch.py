@@ -12,6 +12,16 @@ TOKEN, CHAT = env["TELEGRAM_BOT_TOKEN"], env["TELEGRAM_CHAT_ID"]
 FID, FPW = env["FOREST_ID"], env["FOREST_PW"]
 WEEKS, INTERVAL = int(env.get("WEEKS", "8")), int(env.get("INTERVAL_SEC", "600"))
 HEADLESS = env.get("HEADLESS", "1") == "1"
+SURAK = "수락"   # 2026-10-02 파라님 「휴양림 추가, 노원 수락휴(평일·주말 포함)」 — 이 이름만 평일 밤도 본다
+import os, threading
+_LAST = [time.time()]
+def _guard():
+    while True:
+        time.sleep(120)
+        if time.time() - _LAST[0] > 2400:
+            log("멈춤 40분 — 스스로 끝내고 launchd 가 다시 띄움")
+            os._exit(3)
+threading.Thread(target=_guard, daemon=True).start()
 AREAS = [("1", "수도권"), ("4", "충남")]
 EXCLUDE = ["설매재", "고대산", "백운봉", "중미산", "유명산", "산음", "덕적도",
            "강화", "석모도", "무의도", "가평", "청평", "칼봉산", "강씨봉",
@@ -110,6 +120,17 @@ def targets():
             out.append(d)
     return out
 
+def surak_dates():
+    t0 = dt.date.today()
+    y, m = (t0.year + (t0.month == 12), t0.month % 12 + 1) if t0.day >= 10 else (t0.year, t0.month)
+    end = dt.date(y + (m == 12), m % 12 + 1, 1) - dt.timedelta(days=1)
+    wk = set(targets())
+    out, d = [], t0
+    while d <= end:
+        if d not in wk: out.append(d)
+        d += dt.timedelta(days=1)
+    return out
+
 def parse(html, acd):
     r = []
     for b in re.split(r'(?=<div class="rc_item">)', html)[1:]:
@@ -148,7 +169,7 @@ def main():
         while True:
             now = dt.datetime.now()
             if now.hour < 7:
-                time.sleep(600); continue
+                _LAST[0] = time.time(); time.sleep(600); continue
             try:
                 if not login(pg):
                     raise RuntimeError("login failed")
@@ -169,6 +190,20 @@ def main():
                             for iid, nm, cnt in parse(pg.content(), acd):
                                 cur["%s|%s|%s" % (sat.strftime("%Y%m%d"), sc, iid)] = (sat, nm, cnt, snm)
                             time.sleep(1)
+                for d in surak_dates():
+                    n = d + dt.timedelta(days=1)
+                    pg.goto(MAIN, timeout=60000); pg.wait_for_timeout(1500)
+                    pg.evaluate(JS, {"bg": d.strftime("%Y%m%d"), "ed": n.strftime("%Y%m%d"),
+                                     "pick": fmt(d) + " - " + fmt(n), "area": "1", "sc": "01"})
+                    try:
+                        pg.wait_for_selector(".rc_item", timeout=12000); pg.wait_for_timeout(600)
+                    except Exception:
+                        pg.wait_for_timeout(4000)
+                    for iid, nm, cnt in parse(pg.content(), "1"):
+                        if SURAK in nm:
+                            cur["%s|01|%s" % (d.strftime("%Y%m%d"), iid)] = (d, nm, cnt, "🏠 숙소")
+                    _LAST[0] = time.time()
+                    time.sleep(1)
                 nowts = time.time()   # 2026-09-26 파라님 「텔 덜 오도록」 — 사라졌다 다시 보인 자리는 6시간 안엔 다시 안 알린다(태학산 11:38·12:04)
                 new = [k for k in cur if k not in seen and nowts - alerted.get(k, 0) > 6 * 3600]
                 for k in new:
@@ -180,13 +215,13 @@ def main():
                 alerted = {k: v for k, v in alerted.items() if nowts - v < 7 * 86400}
                 ALERTED.write_text(json.dumps(alerted, ensure_ascii=False), encoding="utf-8")
                 log("ok dates=%d areas=%d avail=%d new=%d" % (WEEKS, len(AREAS), len(cur), len(new)))
-                fails = 0; warned = False
+                fails = 0; warned = False; _LAST[0] = time.time()
                 if beat != now.date() and now.hour >= 8:
                     beat = now.date()
                     tg("감시 정상 작동중 · 현재 빈자리 %d건" % len(cur), silent=True)
             except Exception as e:
                 fails += 1
-                log("ERR(%d) %s %s" % (fails, type(e).__name__, str(e)[:120]))
+                log("ERR(%d) %s %s" % (fails, type(e).__name__, str(e)[:120])); _LAST[0] = time.time()
                 if fails >= 5 and not warned:
                     warned = True
                     tg("감시봇 오류 5회 연속: %s / %s" % (type(e).__name__, str(e)[:120]))
