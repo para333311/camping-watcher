@@ -58,7 +58,7 @@ DD_RSV = "https://reserve.gmuc.co.kr/user/camp/campReservation.do?menu=d&menuFla
 
 SITES = [
     {"key": "HN", "name": "향남오토캠핑장", "km": 50, "cal": HN_CAL, "rsv": HN_RSV},
-    {"key": "DD", "name": "도덕산캠핑장", "km": 13, "cal": DD_CAL, "rsv": DD_RSV},
+    {"key": "DD", "name": "도덕산캠핑장", "km": 13, "cal": DD_CAL, "rsv": DD_RSV, "월수": 1},   # 파라님 10/1: 도덕산은 이번 달만 예약된다 — 다음 달 칸은 열리기 전 잔여가 떠서 헛알림
 ]
 
 def parse_hn(pg):
@@ -98,7 +98,7 @@ def parse_dd(pg):
 def scan(pg, site):
     out = {}
     today = datetime.date.today()
-    for k in range(3):
+    for k in range(site.get("월수", 3)):
         y, m = months(k)
         try:
             pg.goto(site["cal"] % (y, m), timeout=45000)
